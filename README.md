@@ -256,9 +256,13 @@ npm install
 ### 2. ตั้งค่า Environment Variables
 สร้างไฟล์ `.env.local`:
 ```env
+# สำหรับ Local Development:
 NEXT_PUBLIC_SOCKET_URL=http://localhost:4000
+
+# สำหรับ Production (Live Backend บน Render):
+# NEXT_PUBLIC_SOCKET_URL=https://candidate-assignment-backend-nanthapat.onrender.com
 ```
-*(กรณีขึ้น Production บน Vercel ให้เปลี่ยน URL เป็นที่อยู่ Backend ของคุณ เช่น บน Railway/Render)*
+*(เมื่อ Deploy บน Vercel ให้กำหนด Environment Variable `NEXT_PUBLIC_SOCKET_URL` เป็น `https://candidate-assignment-backend-nanthapat.onrender.com`)*
 
 ### 3. รันโปรเจกต์ในโหมด Development
 ```bash
