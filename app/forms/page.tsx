@@ -7,8 +7,6 @@ import { toast } from "sonner";
 import {
   ClipboardList,
   Search,
-  Filter,
-  ArrowUpDown,
   Plus,
   RefreshCw,
   LayoutGrid,
@@ -23,11 +21,15 @@ import {
   Check,
   SplitSquareVertical,
   Activity,
-  Sparkles,
   CheckCircle2,
   FileText,
   UserPen,
   LayoutDashboard,
+  Database,
+  X,
+  SlidersHorizontal,
+  ArrowDownNarrowWide,
+  ArrowUpNarrowWide,
 } from "lucide-react";
 
 import { PatientRecord, PatientStatus } from "@/types/patient";
@@ -52,6 +54,7 @@ function FormsDirectoryContent() {
   const [sortOrder, setSortOrder] = useState<"asc" | "desc">("desc");
   const [viewMode, setViewMode] = useState<"grid" | "table">("grid");
   const [newCustomId, setNewCustomId] = useState("");
+  const [showNewModal, setShowNewModal] = useState(false);
   const [recentlyUpdatedId, setRecentlyUpdatedId] = useState<string | null>(null);
   const [copiedId, setCopiedId] = useState<string | null>(null);
 
@@ -207,7 +210,6 @@ function FormsDirectoryContent() {
     try {
       setIsRefreshing(true);
       for (const sample of demoSamples) {
-        // Upsert via socket or local state fallback
         setPatients((prev) => {
           const now = new Date().toISOString();
           const existing = prev.filter((p) => p.id !== sample.id);
@@ -221,7 +223,7 @@ function FormsDirectoryContent() {
           ];
         });
       }
-      toast.success("เพิ่มข้อมูลตัวอย่าง 3 Session เรียบร้อยแล้ว");
+      toast.success("โหลดข้อมูลตัวอย่างเรียบร้อยแล้ว");
     } catch (err) {
       console.error(err);
       toast.error("ไม่สามารถเพิ่มข้อมูลตัวอย่างได้");
@@ -234,6 +236,8 @@ function FormsDirectoryContent() {
   const handleCreateNewSession = (e: React.FormEvent) => {
     e.preventDefault();
     const id = newCustomId.trim() || `patient-${Math.random().toString(36).substring(2, 7)}`;
+    setShowNewModal(false);
+    setNewCustomId("");
     router.push(`/patient-form?id=${id}`);
   };
 
@@ -296,277 +300,342 @@ function FormsDirectoryContent() {
     };
   }, [patients]);
 
+  const hasActiveFilters = searchQuery.trim().length > 0 || statusFilter !== "all";
+
+  const clearAllFilters = () => {
+    setSearchQuery("");
+    setStatusFilter("all");
+  };
+
   return (
-    <div className="min-h-screen flex flex-col bg-slate-50">
+    <div className="min-h-screen flex flex-col bg-slate-50/70">
       <Navbar />
 
-      <main className="flex-1 py-8 px-4 sm:px-6">
-        <div className="mx-auto max-w-7xl space-y-6">
-          {/* Header Section */}
-          <div className="rounded-2xl border border-slate-200 bg-white p-5 sm:p-6 shadow-2xs space-y-4">
-            <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 border-b border-slate-100 pb-5">
-              <div>
-                <div className="flex items-center gap-2">
-                  <div className="flex h-9 w-9 items-center justify-center rounded-xl bg-teal-100 text-teal-700">
-                    <ClipboardList className="w-5 h-5" />
-                  </div>
-                  <div>
-                    <h1 className="text-xl sm:text-2xl font-bold text-slate-900 tracking-tight flex items-center gap-2">
-                      รายการแบบฟอร์มคนไข้ทั้งหมด
-                      <span className="text-xs font-semibold px-2 py-0.5 bg-teal-50 text-teal-700 border border-teal-200 rounded-full">
-                        Directory
-                      </span>
-                    </h1>
-                    <p className="text-xs text-slate-500 mt-0.5">
-                      ศูนย์รวมการเฝ้าดู จัดการ และเข้าถึงแบบฟอร์มคนไข้ทุก Session แบบ Real-Time
-                    </p>
-                  </div>
+      <main className="flex-1 py-5 px-3 sm:px-6">
+        <div className="mx-auto max-w-7xl space-y-4">
+          {/* Top Page Header Card */}
+          <div className="bg-white p-4 sm:p-5 rounded-xl border border-slate-200 shadow-2xs space-y-3.5">
+            {/* Row 1: Title and Live Connection */}
+            <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 border-b border-slate-100 pb-3">
+              <div className="flex items-center gap-3">
+                <div className="flex h-9 w-9 sm:h-10 sm:w-10 items-center justify-center rounded-lg bg-teal-600 text-white shadow-sm shadow-teal-600/20 shrink-0">
+                  <ClipboardList className="w-4 h-4 sm:w-5 sm:h-5" />
+                </div>
+                <div>
+                  <h1 className="text-base sm:text-lg font-bold text-slate-900 tracking-tight">
+                    ทะเบียนข้อมูลผู้ป่วย (Patient Directory)
+                  </h1>
+                  <p className="text-[11px] sm:text-xs text-slate-500">
+                    ระบบติดตามสถานะและการลงทะเบียนผู้ป่วยแบบ Real-Time
+                  </p>
                 </div>
               </div>
 
-              {/* Action Buttons & Status */}
-              <div className="flex flex-wrap items-center gap-2">
+              {/* Status and Refresh Icon */}
+              <div className="flex items-center justify-between sm:justify-end gap-2 shrink-0">
                 <ConnectionStatus isConnected={isConnected} socketId={socketId} />
-
                 <Button
                   variant="outline"
                   size="sm"
                   onClick={handleManualRefresh}
                   disabled={isRefreshing}
-                  className="gap-1.5 text-xs text-slate-600 shadow-2xs"
+                  className="h-8 sm:h-9 px-2.5 text-xs text-slate-700 hover:bg-slate-50"
+                  title="รีเฟรชข้อมูลจาก Server"
                 >
-                  <RefreshCw className={`w-3.5 h-3.5 ${isRefreshing ? "animate-spin text-teal-600" : ""}`} />
-                  รีเฟรช
+                  <RefreshCw className={`w-3.5 h-3.5 ${isRefreshing ? "animate-spin text-teal-600" : "text-slate-500"}`} />
+                  <span className="hidden sm:inline">รีเฟรช</span>
                 </Button>
-
-                <Button
-                  variant="outline"
-                  size="sm"
-                  onClick={handleSeedDemoPatients}
-                  className="gap-1.5 text-xs text-teal-700 border-teal-200 bg-teal-50/50 hover:bg-teal-100/60 shadow-2xs"
-                >
-                  <Sparkles className="w-3.5 h-3.5 text-teal-600" />
-                  เพิ่มข้อมูลตัวอย่าง (Demo Data)
-                </Button>
-
-                {/* Quick Session Start */}
-                <form onSubmit={handleCreateNewSession} className="flex items-center gap-1.5">
-                  <Input
-                    placeholder="รหัส Session ใหม่..."
-                    value={newCustomId}
-                    onChange={(e) => setNewCustomId(e.target.value)}
-                    className="h-8 text-xs w-36 sm:w-44 font-mono"
-                  />
-                  <Button size="sm" type="submit" className="h-8 gap-1 bg-teal-600 hover:bg-teal-700 text-white text-xs">
-                    <Plus className="w-3.5 h-3.5" />
-                    สร้างฟอร์ม
-                  </Button>
-                </form>
               </div>
             </div>
 
-            {/* Metric / KPI Stats Cards */}
-            <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 pt-1">
-              {/* Total */}
-              <div
-                onClick={() => setStatusFilter("all")}
-                className={`cursor-pointer rounded-xl border p-3 transition-all ${
-                  statusFilter === "all"
-                    ? "border-teal-400 bg-teal-50/50 shadow-xs"
-                    : "border-slate-200 bg-slate-50/40 hover:bg-slate-50"
-                }`}
+            {/* Row 2: Action Buttons */}
+            <div className="grid grid-cols-2 sm:flex sm:items-center sm:justify-end gap-2">
+              <Button
+                variant="outline"
+                size="sm"
+                onClick={handleSeedDemoPatients}
+                className="h-9 gap-1.5 text-xs text-slate-700 hover:bg-slate-50 w-full sm:w-auto"
+                title="โหลดข้อมูลตัวอย่างสำหรับการทดสอบระบบ"
               >
-                <div className="flex items-center justify-between text-xs font-semibold text-slate-600">
-                  <span>ฟอร์มทั้งหมด</span>
-                  <ClipboardList className="w-4 h-4 text-slate-400" />
-                </div>
-                <div className="mt-2 text-2xl font-bold text-slate-900">{stats.total}</div>
-                <div className="text-[11px] text-slate-400 mt-0.5">ทุก Session ในระบบ</div>
-              </div>
+                <Database className="w-3.5 h-3.5 text-slate-500 shrink-0" />
+                <span className="truncate">โหลดข้อมูลตัวอย่าง</span>
+              </Button>
 
-              {/* Actively Filling */}
-              <div
-                onClick={() => setStatusFilter("filling")}
-                className={`cursor-pointer rounded-xl border p-3 transition-all ${
-                  statusFilter === "filling"
-                    ? "border-amber-400 bg-amber-50/50 shadow-xs"
-                    : "border-slate-200 bg-slate-50/40 hover:bg-slate-50"
-                }`}
+              <Button
+                size="sm"
+                onClick={() => setShowNewModal(true)}
+                className="h-9 gap-1.5 bg-teal-600 hover:bg-teal-700 text-white text-xs font-semibold shadow-xs w-full sm:w-auto"
               >
-                <div className="flex items-center justify-between text-xs font-semibold text-amber-800">
-                  <span className="flex items-center gap-1.5">
-                    <span className="relative flex h-2 w-2">
-                      <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-amber-400 opacity-75"></span>
-                      <span className="relative inline-flex rounded-full h-2 w-2 bg-amber-500"></span>
-                    </span>
-                    กำลังกรอก
-                  </span>
-                  <Activity className="w-4 h-4 text-amber-500" />
-                </div>
-                <div className="mt-2 text-2xl font-bold text-amber-900">{stats.filling}</div>
-                <div className="text-[11px] text-amber-700 mt-0.5">Actively Filling</div>
-              </div>
-
-              {/* Inactive */}
-              <div
-                onClick={() => setStatusFilter("inactive")}
-                className={`cursor-pointer rounded-xl border p-3 transition-all ${
-                  statusFilter === "inactive"
-                    ? "border-slate-400 bg-slate-100/70 shadow-xs"
-                    : "border-slate-200 bg-slate-50/40 hover:bg-slate-50"
-                }`}
-              >
-                <div className="flex items-center justify-between text-xs font-semibold text-slate-700">
-                  <span>หยุดพิมพ์</span>
-                  <Clock className="w-4 h-4 text-slate-500" />
-                </div>
-                <div className="mt-2 text-2xl font-bold text-slate-800">{stats.inactive}</div>
-                <div className="text-[11px] text-slate-500 mt-0.5">Inactive (&gt;5s)</div>
-              </div>
-
-              {/* Submitted */}
-              <div
-                onClick={() => setStatusFilter("submitted")}
-                className={`cursor-pointer rounded-xl border p-3 transition-all ${
-                  statusFilter === "submitted"
-                    ? "border-emerald-400 bg-emerald-50/50 shadow-xs"
-                    : "border-slate-200 bg-slate-50/40 hover:bg-slate-50"
-                }`}
-              >
-                <div className="flex items-center justify-between text-xs font-semibold text-emerald-800">
-                  <span>ส่งฟอร์มแล้ว</span>
-                  <CheckCircle2 className="w-4 h-4 text-emerald-600" />
-                </div>
-                <div className="mt-2 text-2xl font-bold text-emerald-900">{stats.submitted}</div>
-                <div className="text-[11px] text-emerald-700 mt-0.5">Submitted Data</div>
-              </div>
+                <Plus className="w-4 h-4 shrink-0" />
+                <span className="truncate">สร้าง Session ใหม่</span>
+              </Button>
             </div>
           </div>
 
-          {/* Search, Filter & Controls Bar */}
-          <div className="flex flex-col sm:flex-row items-stretch sm:items-center justify-between gap-3 bg-white p-4 rounded-xl border border-slate-200 shadow-2xs">
+          {/* Metric KPI Overview (Interactive Filter Cards - Responsive Compact) */}
+          <div className="grid grid-cols-2 sm:grid-cols-4 gap-2 sm:gap-3">
+            {/* Total */}
+            <button
+              onClick={() => setStatusFilter("all")}
+              className={`p-2.5 sm:p-3.5 rounded-xl border text-left transition-all cursor-pointer ${
+                statusFilter === "all"
+                  ? "bg-white border-teal-600 shadow-xs ring-1 ring-teal-600"
+                  : "bg-white border-slate-200 hover:border-slate-300 shadow-2xs"
+              }`}
+            >
+              <div className="flex items-center justify-between text-[11px] sm:text-xs font-medium text-slate-600">
+                <span>ทั้งหมด (All)</span>
+                <span className="text-[10px] text-slate-400 font-mono hidden sm:inline">100%</span>
+              </div>
+              <div className="mt-1 text-xl sm:text-2xl font-bold text-slate-900 tracking-tight">
+                {stats.total}
+              </div>
+              <div className="text-[10px] sm:text-[11px] text-slate-500 mt-0.5 truncate">รวมทุกสถานะ</div>
+            </button>
+
+            {/* Actively Filling */}
+            <button
+              onClick={() => setStatusFilter("filling")}
+              className={`p-2.5 sm:p-3.5 rounded-xl border text-left transition-all cursor-pointer ${
+                statusFilter === "filling"
+                  ? "bg-amber-50/60 border-amber-500 shadow-xs ring-1 ring-amber-500"
+                  : "bg-white border-slate-200 hover:border-slate-300 shadow-2xs"
+              }`}
+            >
+              <div className="flex items-center justify-between text-[11px] sm:text-xs font-medium text-amber-800">
+                <span className="flex items-center gap-1">
+                  <span className="inline-block h-1.5 w-1.5 sm:h-2 sm:w-2 rounded-full bg-amber-500 animate-pulse" />
+                  <span className="truncate">กำลังกรอก</span>
+                </span>
+                <Activity className="w-3.5 h-3.5 text-amber-500 shrink-0" />
+              </div>
+              <div className="mt-1 text-xl sm:text-2xl font-bold text-amber-900 tracking-tight">
+                {stats.filling}
+              </div>
+              <div className="text-[10px] sm:text-[11px] text-amber-700/80 mt-0.5 truncate">กำลังพิมพ์ข้อมูล</div>
+            </button>
+
+            {/* Inactive */}
+            <button
+              onClick={() => setStatusFilter("inactive")}
+              className={`p-2.5 sm:p-3.5 rounded-xl border text-left transition-all cursor-pointer ${
+                statusFilter === "inactive"
+                  ? "bg-slate-100 border-slate-600 shadow-xs ring-1 ring-slate-600"
+                  : "bg-white border-slate-200 hover:border-slate-300 shadow-2xs"
+              }`}
+            >
+              <div className="flex items-center justify-between text-[11px] sm:text-xs font-medium text-slate-700">
+                <span className="flex items-center gap-1">
+                  <span className="inline-block h-1.5 w-1.5 sm:h-2 sm:w-2 rounded-full bg-slate-400" />
+                  <span className="truncate">หยุดพิมพ์</span>
+                </span>
+                <Clock className="w-3.5 h-3.5 text-slate-400 shrink-0" />
+              </div>
+              <div className="mt-1 text-xl sm:text-2xl font-bold text-slate-800 tracking-tight">
+                {stats.inactive}
+              </div>
+              <div className="text-[10px] sm:text-[11px] text-slate-500 mt-0.5 truncate">&gt; 5 วินาที</div>
+            </button>
+
+            {/* Submitted */}
+            <button
+              onClick={() => setStatusFilter("submitted")}
+              className={`p-2.5 sm:p-3.5 rounded-xl border text-left transition-all cursor-pointer ${
+                statusFilter === "submitted"
+                  ? "bg-emerald-50/60 border-emerald-600 shadow-xs ring-1 ring-emerald-600"
+                  : "bg-white border-slate-200 hover:border-slate-300 shadow-2xs"
+              }`}
+            >
+              <div className="flex items-center justify-between text-[11px] sm:text-xs font-medium text-emerald-800">
+                <span className="flex items-center gap-1">
+                  <span className="inline-block h-1.5 w-1.5 sm:h-2 sm:w-2 rounded-full bg-emerald-500" />
+                  <span className="truncate">ส่งแล้ว</span>
+                </span>
+                <CheckCircle2 className="w-3.5 h-3.5 text-emerald-600 shrink-0" />
+              </div>
+              <div className="mt-1 text-xl sm:text-2xl font-bold text-emerald-900 tracking-tight">
+                {stats.submitted}
+              </div>
+              <div className="text-[10px] sm:text-[11px] text-emerald-700/80 mt-0.5 truncate">บันทึกสมบูรณ์</div>
+            </button>
+          </div>
+
+          {/* Unified Enterprise Filter & Search Toolbar (Mobile Optimized) */}
+          <div className="bg-white p-3 sm:p-4 rounded-xl border border-slate-200 shadow-2xs space-y-2.5 sm:space-y-3">
             {/* Search Input */}
-            <div className="relative flex-1 max-w-md">
-              <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400" />
+            <div className="relative w-full">
+              <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400 pointer-events-none" />
               <Input
                 placeholder="ค้นหาชื่อ, รหัสคนไข้, เบอร์โทร, อีเมล..."
                 value={searchQuery}
                 onChange={(e) => setSearchQuery(e.target.value)}
-                className="pl-9 text-xs"
+                className="h-9 pl-9 pr-8 text-xs bg-slate-50/60 focus:bg-white transition"
               />
+              {searchQuery && (
+                <button
+                  onClick={() => setSearchQuery("")}
+                  className="absolute right-2.5 top-1/2 -translate-y-1/2 text-slate-400 hover:text-slate-600 p-0.5 rounded cursor-pointer"
+                  title="ล้างคำค้นหา"
+                >
+                  <X className="w-3.5 h-3.5" />
+                </button>
+              )}
             </div>
 
-            {/* Filter, Sort & View Mode controls */}
-            <div className="flex flex-wrap items-center gap-2">
-              {/* Status Filter */}
-              <div className="flex items-center gap-1">
-                <Filter className="w-3.5 h-3.5 text-slate-400" />
-                <Select
-                  value={statusFilter}
-                  onChange={(e) => setStatusFilter(e.target.value as "all" | PatientStatus)}
-                  className="text-xs h-9 py-1 px-2 w-32"
-                >
-                  <option value="all">สถานะทั้งหมด</option>
-                  <option value="filling">กำลังกรอก (Filling)</option>
-                  <option value="inactive">หยุดพิมพ์ (Inactive)</option>
-                  <option value="submitted">ส่งแล้ว (Submitted)</option>
-                </Select>
+            {/* Filter & View Controls Row */}
+            <div className="flex items-center justify-between gap-2">
+              {/* Left Controls: Status & Sort */}
+              <div className="flex items-center gap-1.5 sm:gap-2 flex-1 min-w-0">
+                {/* Status Dropdown */}
+                <div className="flex items-center gap-1 bg-slate-50 px-2 py-1 rounded-lg border border-slate-200 flex-1 sm:flex-initial min-w-0">
+                  <SlidersHorizontal className="w-3 h-3 text-slate-500 shrink-0 hidden sm:inline" />
+                  <span className="text-[11px] text-slate-500 font-medium whitespace-nowrap">สถานะ:</span>
+                  <Select
+                    value={statusFilter}
+                    onChange={(e) => setStatusFilter(e.target.value as "all" | PatientStatus)}
+                    className="h-6 py-0 px-0.5 text-xs border-0 bg-transparent font-medium text-slate-800 focus:ring-0 truncate cursor-pointer w-full"
+                  >
+                    <option value="all">ทั้งหมด ({stats.total})</option>
+                    <option value="filling">กำลังกรอก ({stats.filling})</option>
+                    <option value="inactive">หยุดพิมพ์ ({stats.inactive})</option>
+                    <option value="submitted">ส่งแล้ว ({stats.submitted})</option>
+                  </Select>
+                </div>
+
+                {/* Sort By Dropdown */}
+                <div className="flex items-center gap-1 bg-slate-50 px-2 py-1 rounded-lg border border-slate-200 flex-1 sm:flex-initial min-w-0">
+                  <span className="text-[11px] text-slate-500 font-medium whitespace-nowrap">เรียง:</span>
+                  <Select
+                    value={sortBy}
+                    onChange={(e) => setSortBy(e.target.value as "updatedAt" | "name" | "status")}
+                    className="h-6 py-0 px-0.5 text-xs border-0 bg-transparent font-medium text-slate-800 focus:ring-0 truncate cursor-pointer w-full"
+                  >
+                    <option value="updatedAt">ล่าสุด</option>
+                    <option value="name">ชื่อ (ก-ฮ)</option>
+                    <option value="status">สถานะ</option>
+                  </Select>
+
+                  {/* Sort Direction Toggle */}
+                  <button
+                    onClick={() => setSortOrder((prev) => (prev === "asc" ? "desc" : "asc"))}
+                    className="p-0.5 text-slate-500 hover:text-slate-900 rounded hover:bg-slate-200/60 transition cursor-pointer shrink-0"
+                    title={sortOrder === "desc" ? "เรียงจากใหม่ไปเก่า (ล่าสุดก่อน)" : "เรียงจากเก่าไปใหม่"}
+                  >
+                    {sortOrder === "desc" ? (
+                      <ArrowDownNarrowWide className="w-3.5 h-3.5 text-teal-700" />
+                    ) : (
+                      <ArrowUpNarrowWide className="w-3.5 h-3.5 text-teal-700" />
+                    )}
+                  </button>
+                </div>
               </div>
 
-              {/* Sort By */}
-              <div className="flex items-center gap-1">
-                <ArrowUpDown className="w-3.5 h-3.5 text-slate-400" />
-                <Select
-                  value={sortBy}
-                  onChange={(e) => setSortBy(e.target.value as "updatedAt" | "name" | "status")}
-                  className="text-xs h-9 py-1 px-2 w-32"
-                >
-                  <option value="updatedAt">เวลาแก้ไขล่าสุด</option>
-                  <option value="name">ชื่อผู้ป่วย</option>
-                  <option value="status">สถานะ</option>
-                </Select>
-                <Button
-                  variant="outline"
-                  size="sm"
-                  onClick={() => setSortOrder((prev) => (prev === "asc" ? "desc" : "asc"))}
-                  className="h-9 px-2 text-xs"
-                  title="สลับลำดับ เรียงหน้า/หลัง"
-                >
-                  {sortOrder === "desc" ? "↓ ล่าสุด" : "↑ เก่าสุด"}
-                </Button>
-              </div>
-
-              {/* View Toggle */}
-              <div className="flex items-center rounded-lg border border-slate-200 p-0.5 bg-slate-50">
+              {/* Right View Switcher */}
+              <div className="flex items-center rounded-lg border border-slate-200 bg-slate-50 p-0.5 shrink-0">
                 <button
                   onClick={() => setViewMode("grid")}
-                  className={`p-1.5 rounded-md transition ${
+                  className={`p-1.5 sm:px-2.5 sm:py-1 rounded-md transition flex items-center gap-1 ${
                     viewMode === "grid"
                       ? "bg-white text-teal-700 shadow-2xs font-semibold"
-                      : "text-slate-500 hover:text-slate-800"
+                      : "text-slate-600 hover:text-slate-900"
                   }`}
-                  title="Card Grid View"
+                  title="มุมมองแบบ Card Grid"
                 >
-                  <LayoutGrid className="w-4 h-4" />
+                  <LayoutGrid className="w-3.5 h-3.5" />
+                  <span className="hidden sm:inline text-xs">การ์ด</span>
                 </button>
                 <button
                   onClick={() => setViewMode("table")}
-                  className={`p-1.5 rounded-md transition ${
+                  className={`p-1.5 sm:px-2.5 sm:py-1 rounded-md transition flex items-center gap-1 ${
                     viewMode === "table"
                       ? "bg-white text-teal-700 shadow-2xs font-semibold"
-                      : "text-slate-500 hover:text-slate-800"
+                      : "text-slate-600 hover:text-slate-900"
                   }`}
-                  title="Table View"
+                  title="มุมมองแบบตาราง Table"
                 >
-                  <TableIcon className="w-4 h-4" />
+                  <TableIcon className="w-3.5 h-3.5" />
+                  <span className="hidden sm:inline text-xs">ตาราง</span>
                 </button>
               </div>
             </div>
+
+            {/* Active Filter Summary Bar */}
+            {hasActiveFilters && (
+              <div className="flex items-center justify-between pt-1.5 border-t border-slate-100 text-[11px] sm:text-xs">
+                <span className="text-slate-500">
+                  พบ <strong>{filteredPatients.length}</strong> จาก {patients.length} รายการ
+                </span>
+                <button
+                  onClick={clearAllFilters}
+                  className="text-teal-700 hover:text-teal-900 font-semibold flex items-center gap-1 hover:underline cursor-pointer"
+                >
+                  <X className="w-3 h-3" />
+                  ล้างตัวกรอง
+                </button>
+              </div>
+            )}
           </div>
 
           {/* Directory Content List */}
           {isLoading ? (
-            <div className="rounded-2xl border border-slate-200 bg-white p-12 text-center text-slate-500 space-y-3">
-              <RefreshCw className="w-8 h-8 animate-spin mx-auto text-teal-600" />
-              <p className="text-sm">กำลังโหลดข้อมูลแบบฟอร์มทั้งหมด...</p>
+            <div className="rounded-xl border border-slate-200 bg-white p-10 text-center text-slate-500 space-y-3">
+              <RefreshCw className="w-7 h-7 animate-spin mx-auto text-teal-600" />
+              <p className="text-xs text-slate-600">กำลังโหลดข้อมูลแบบฟอร์มทั้งหมด...</p>
             </div>
           ) : filteredPatients.length === 0 ? (
             /* Empty State */
-            <div className="rounded-2xl border border-dashed border-slate-300 bg-white p-12 text-center space-y-4">
-              <div className="mx-auto flex h-14 w-14 items-center justify-center rounded-2xl bg-teal-50 text-teal-600">
-                <FileText className="w-7 h-7" />
+            <div className="rounded-xl border border-dashed border-slate-300 bg-white p-8 sm:p-12 text-center space-y-3">
+              <div className="mx-auto flex h-11 w-11 items-center justify-center rounded-xl bg-slate-100 text-slate-500">
+                <FileText className="w-5 h-5" />
               </div>
               <div className="space-y-1">
-                <h3 className="text-base font-bold text-slate-800">
-                  {searchQuery || statusFilter !== "all"
+                <h3 className="text-sm font-bold text-slate-800">
+                  {hasActiveFilters
                     ? "ไม่พบแบบฟอร์มที่ตรงกับเงื่อนไขการค้นหา"
                     : "ยังไม่มีแบบฟอร์มในระบบ"}
                 </h3>
                 <p className="text-xs text-slate-500 max-w-sm mx-auto">
-                  {searchQuery || statusFilter !== "all"
-                    ? "ลองเปลี่ยนคำค้นหาหรือตัวกรองสถานะใหม่อีกครั้ง"
-                    : "คุณสามารถเริ่มต้นโดยการสร้างฟอร์มใหม่ หรือกดปุ่มเพิ่มข้อมูลตัวอย่าง"}
+                  {hasActiveFilters
+                    ? "ลองเปลี่ยนคำค้นหาหรือเลือกสถานะตัวกรองใหม่อีกครั้ง"
+                    : "คุณสามารถเริ่มต้นโดยการสร้าง Session ใหม่ หรือกดปุ่มโหลดข้อมูลตัวอย่าง"}
                 </p>
               </div>
-              <div className="flex flex-wrap items-center justify-center gap-2 pt-2">
-                <Button
-                  onClick={handleSeedDemoPatients}
-                  className="bg-teal-600 hover:bg-teal-700 text-white text-xs gap-1.5"
-                >
-                  <Sparkles className="w-3.5 h-3.5" />
-                  เพิ่มข้อมูลตัวอย่างทันที (Seed Demo)
-                </Button>
-                <Link href="/patient-form?id=patient-demo-001">
-                  <Button variant="outline" className="text-xs gap-1.5">
-                    <UserPen className="w-3.5 h-3.5" />
-                    เปิดกรอกฟอร์ม patient-demo-001
+              <div className="flex flex-wrap items-center justify-center gap-2 pt-1">
+                {hasActiveFilters ? (
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    onClick={clearAllFilters}
+                    className="text-xs"
+                  >
+                    ล้างการค้นหาและตัวกรอง
                   </Button>
-                </Link>
+                ) : (
+                  <>
+                    <Button
+                      size="sm"
+                      onClick={handleSeedDemoPatients}
+                      className="bg-teal-600 hover:bg-teal-700 text-white text-xs gap-1.5"
+                    >
+                      <Database className="w-3.5 h-3.5" />
+                      โหลดข้อมูลตัวอย่าง
+                    </Button>
+                    <Button
+                      variant="outline"
+                      size="sm"
+                      onClick={() => setShowNewModal(true)}
+                      className="text-xs gap-1.5"
+                    >
+                      <Plus className="w-3.5 h-3.5" />
+                      สร้าง Session ใหม่
+                    </Button>
+                  </>
+                )}
               </div>
             </div>
           ) : viewMode === "grid" ? (
             /* Card Grid View */
-            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-3 sm:gap-4">
               {filteredPatients.map((patient) => {
                 const fullName =
                   [patient.firstName, patient.middleName, patient.lastName].filter(Boolean).join(" ") ||
@@ -576,24 +645,24 @@ function FormsDirectoryContent() {
                 return (
                   <Card
                     key={patient.id}
-                    className={`border transition-all duration-300 hover:shadow-md flex flex-col justify-between ${
+                    className={`border transition-all duration-200 hover:shadow-md flex flex-col justify-between ${
                       isRecentlyUpdated
-                        ? "ring-2 ring-teal-500 bg-teal-50/30"
+                        ? "border-teal-500 bg-teal-50/20 ring-1 ring-teal-500"
                         : "border-slate-200 bg-white"
                     }`}
                   >
                     <div>
                       {/* Card Header */}
-                      <CardHeader className="p-4 pb-3 border-b border-slate-100 bg-slate-50/50">
+                      <CardHeader className="p-3.5 pb-2.5 border-b border-slate-100 bg-slate-50/40">
                         <div className="flex items-start justify-between gap-2">
-                          <div className="space-y-1">
-                            <div className="flex items-center gap-2">
-                              <span className="font-mono text-xs font-bold text-teal-700 bg-teal-50 border border-teal-200 px-2 py-0.5 rounded-md">
+                          <div className="space-y-1 min-w-0">
+                            <div className="flex items-center gap-1.5">
+                              <span className="font-mono text-xs font-bold text-slate-800 bg-slate-100 border border-slate-200 px-2 py-0.5 rounded truncate">
                                 {patient.id}
                               </span>
                               <button
                                 onClick={() => handleCopyLink("/patient-form", patient.id)}
-                                className="text-slate-400 hover:text-slate-600 cursor-pointer"
+                                className="text-slate-400 hover:text-slate-700 cursor-pointer p-0.5 rounded shrink-0"
                                 title="คัดลอกลิงก์ Patient Form"
                               >
                                 {copiedId === patient.id ? (
@@ -603,18 +672,18 @@ function FormsDirectoryContent() {
                                 )}
                               </button>
                             </div>
-                            <CardTitle className="text-sm font-bold text-slate-900 line-clamp-1">
+                            <CardTitle className="text-sm font-bold text-slate-900 truncate">
                               {fullName}
                             </CardTitle>
                           </div>
-                          <StatusBadge status={patient.status} className="scale-90 origin-top-right" />
+                          <StatusBadge status={patient.status} className="scale-90 origin-top-right shrink-0" />
                         </div>
                       </CardHeader>
 
                       {/* Card Body Information */}
-                      <CardContent className="p-4 space-y-2.5 text-xs text-slate-600">
+                      <CardContent className="p-3.5 space-y-2 text-xs text-slate-600">
                         {/* Phone & Email */}
-                        <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
+                        <div className="grid grid-cols-1 sm:grid-cols-2 gap-1.5 sm:gap-2">
                           <div className="flex items-center gap-1.5 truncate">
                             <Phone className="w-3.5 h-3.5 text-slate-400 shrink-0" />
                             <span className="font-mono">{patient.phoneNumber || "-"}</span>
@@ -626,7 +695,7 @@ function FormsDirectoryContent() {
                         </div>
 
                         {/* DOB & Gender */}
-                        <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
+                        <div className="grid grid-cols-1 sm:grid-cols-2 gap-1.5 sm:gap-2">
                           <div className="flex items-center gap-1.5 truncate">
                             <Calendar className="w-3.5 h-3.5 text-slate-400 shrink-0" />
                             <span>{patient.dateOfBirth || "-"}</span>
@@ -639,8 +708,8 @@ function FormsDirectoryContent() {
 
                         {/* Emergency Contact */}
                         {patient.emergencyName && (
-                          <div className="rounded-md bg-slate-50 p-2 border border-slate-100 text-[11px] space-y-0.5">
-                            <span className="text-slate-400 font-semibold block">ผู้ติดต่อฉุกเฉิน:</span>
+                          <div className="rounded-md bg-slate-50 p-2 border border-slate-200/80 text-[11px] space-y-0.5">
+                            <span className="text-slate-500 font-medium block">ผู้ติดต่อฉุกเฉิน:</span>
                             <span className="font-medium text-slate-800">
                               {patient.emergencyName} ({patient.emergencyRelation || "ไม่ระบุ"})
                             </span>
@@ -648,46 +717,46 @@ function FormsDirectoryContent() {
                         )}
 
                         {/* Updated At */}
-                        <div className="flex items-center justify-between text-[11px] text-slate-400 pt-1 border-t border-slate-100">
-                          <span className="flex items-center gap-1">
-                            <Clock className="w-3 h-3" />
+                        <div className="flex items-center justify-between text-[11px] text-slate-400 pt-1.5 border-t border-slate-100">
+                          <span className="flex items-center gap-1 text-slate-500">
+                            <Clock className="w-3 h-3 text-slate-400" />
                             {patient.updatedAt
-                              ? `อัปเดต ${formatRelativeTime(patient.updatedAt)}`
-                              : "เพิ่งสร้าง"}
+                              ? `แก้ไข ${formatRelativeTime(patient.updatedAt)}`
+                              : "สร้างใหม่"}
                           </span>
-                          <span className="text-slate-400">
+                          <span className="text-slate-500 font-medium">
                             {patient.preferredLanguage || "ไทย"}
                           </span>
                         </div>
                       </CardContent>
                     </div>
 
-                    {/* Card Footer Actions */}
-                    <div className="p-3 bg-slate-50/70 border-t border-slate-100 flex items-center justify-between gap-1.5">
-                      <div className="flex items-center gap-1">
-                        <Link href={`/staff-view?id=${patient.id}`} title="เปิดหน้า Staff View">
-                          <Button size="sm" variant="outline" className="h-7 px-2 text-[11px] gap-1 text-slate-700">
-                            <LayoutDashboard className="w-3 h-3 text-teal-600" />
-                            Staff
+                    {/* Card Footer Actions (Optimized for Mobile) */}
+                    <div className="p-2.5 sm:p-3 bg-slate-50/60 border-t border-slate-100 flex items-center justify-between gap-1">
+                      <div className="flex items-center gap-1 flex-1 min-w-0">
+                        <Link href={`/staff-view?id=${patient.id}`} title="เปิดหน้าจอเจ้าหน้าที่ (Staff View)" className="flex-1 min-w-0">
+                          <Button size="sm" variant="outline" className="w-full h-7 px-1.5 sm:px-2.5 text-[11px] sm:text-xs gap-1 text-slate-700 bg-white hover:bg-slate-50 truncate">
+                            <LayoutDashboard className="w-3 h-3 text-teal-600 shrink-0" />
+                            <span className="truncate">Staff</span>
                           </Button>
                         </Link>
-                        <Link href={`/patient-form?id=${patient.id}`} title="เปิดหน้า Patient Form">
-                          <Button size="sm" variant="outline" className="h-7 px-2 text-[11px] gap-1 text-slate-700">
-                            <UserPen className="w-3 h-3 text-sky-600" />
-                            Form
+                        <Link href={`/patient-form?id=${patient.id}`} title="เปิดแบบฟอร์มผู้ป่วย (Patient Form)" className="flex-1 min-w-0">
+                          <Button size="sm" variant="outline" className="w-full h-7 px-1.5 sm:px-2.5 text-[11px] sm:text-xs gap-1 text-slate-700 bg-white hover:bg-slate-50 truncate">
+                            <UserPen className="w-3 h-3 text-slate-600 shrink-0" />
+                            <span className="truncate">Form</span>
                           </Button>
                         </Link>
-                        <Link href={`/demo?id=${patient.id}`} title="เปิดหน้า Split-Screen Demo">
-                          <Button size="sm" variant="outline" className="h-7 px-2 text-[11px] gap-1 text-teal-800 bg-teal-50/50 border-teal-200">
-                            <SplitSquareVertical className="w-3 h-3 text-teal-600" />
-                            Demo
+                        <Link href={`/demo?id=${patient.id}`} title="เปิดเดโม 2 หน้าจอ (Split View)" className="flex-1 min-w-0">
+                          <Button size="sm" variant="outline" className="w-full h-7 px-1 sm:px-2 text-[11px] sm:text-xs gap-1 text-teal-800 bg-teal-50 border-teal-200 hover:bg-teal-100/60 truncate">
+                            <SplitSquareVertical className="w-3 h-3 text-teal-600 shrink-0" />
+                            <span className="truncate">Demo</span>
                           </Button>
                         </Link>
                       </div>
 
                       <button
                         onClick={() => handleDeletePatient(patient.id, fullName)}
-                        className="p-1.5 text-slate-400 hover:text-rose-600 rounded-md hover:bg-rose-50 transition cursor-pointer"
+                        className="p-1.5 text-slate-400 hover:text-rose-600 rounded-md hover:bg-rose-50 transition cursor-pointer shrink-0 ml-0.5"
                         title="ลบฟอร์มนี้"
                       >
                         <Trash2 className="w-3.5 h-3.5" />
@@ -727,7 +796,7 @@ function FormsDirectoryContent() {
                             isRecentlyUpdated ? "bg-teal-50/60" : ""
                           }`}
                         >
-                          <td className="py-3 px-4 font-mono font-bold text-teal-700">
+                          <td className="py-3 px-4 font-mono font-bold text-slate-900">
                             {patient.id}
                           </td>
                           <td className="py-3 px-4 font-semibold text-slate-900">
@@ -750,17 +819,17 @@ function FormsDirectoryContent() {
                           <td className="py-3 px-4 text-right">
                             <div className="flex items-center justify-end gap-1">
                               <Link href={`/staff-view?id=${patient.id}`}>
-                                <Button size="sm" variant="outline" className="h-7 px-2 text-[11px] text-teal-700">
+                                <Button size="sm" variant="outline" className="h-7 px-2 text-xs text-slate-700 bg-white">
                                   Staff View
                                 </Button>
                               </Link>
                               <Link href={`/patient-form?id=${patient.id}`}>
-                                <Button size="sm" variant="outline" className="h-7 px-2 text-[11px]">
+                                <Button size="sm" variant="outline" className="h-7 px-2 text-xs text-slate-700 bg-white">
                                   Form
                                 </Button>
                               </Link>
                               <Link href={`/demo?id=${patient.id}`}>
-                                <Button size="sm" variant="outline" className="h-7 px-2 text-[11px] text-teal-800 bg-teal-50 border-teal-200">
+                                <Button size="sm" variant="outline" className="h-7 px-2 text-xs text-teal-800 bg-teal-50 border-teal-200">
                                   Demo
                                 </Button>
                               </Link>
@@ -783,13 +852,84 @@ function FormsDirectoryContent() {
           )}
         </div>
       </main>
+
+      {/* Modal: Create New Session */}
+      {showNewModal && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-900/50 backdrop-blur-xs p-4 animate-in fade-in duration-150">
+          <div className="bg-white rounded-xl border border-slate-200 shadow-xl max-w-md w-full p-5 space-y-4">
+            <div className="flex items-center justify-between border-b border-slate-100 pb-3">
+              <div className="flex items-center gap-2">
+                <div className="flex h-8 w-8 items-center justify-center rounded-lg bg-teal-600 text-white">
+                  <Plus className="w-4 h-4" />
+                </div>
+                <div>
+                  <h3 className="text-sm font-bold text-slate-900">สร้าง Session ผู้ป่วยใหม่</h3>
+                  <p className="text-[11px] text-slate-500">กำหนดรหัสหรือสร้างแบบฟอร์มว่าง</p>
+                </div>
+              </div>
+              <button
+                onClick={() => setShowNewModal(false)}
+                className="text-slate-400 hover:text-slate-600 p-1 rounded-md cursor-pointer"
+              >
+                <X className="w-4 h-4" />
+              </button>
+            </div>
+
+            <form onSubmit={handleCreateNewSession} className="space-y-4">
+              <div className="space-y-1.5">
+                <label className="text-xs font-semibold text-slate-700">
+                  รหัสอ้างอิงผู้ป่วย (Session ID)
+                </label>
+                <Input
+                  placeholder="เช่น patient-001, hn-1094..."
+                  value={newCustomId}
+                  onChange={(e) => setNewCustomId(e.target.value)}
+                  className="font-mono text-xs"
+                  autoFocus
+                />
+                <p className="text-[11px] text-slate-400">
+                  * หากเว้นว่างไว้ ระบบจะสร้างรหัสสุ่มให้โดยอัตโนมัติ
+                </p>
+              </div>
+
+              <div className="flex items-center justify-end gap-2 pt-2 border-t border-slate-100">
+                <Button
+                  type="button"
+                  variant="outline"
+                  size="sm"
+                  onClick={() => setShowNewModal(false)}
+                  className="text-xs"
+                >
+                  ยกเลิก
+                </Button>
+                <Button
+                  type="submit"
+                  size="sm"
+                  className="bg-teal-600 hover:bg-teal-700 text-white text-xs font-semibold"
+                >
+                  ไปที่หน้ากรอกฟอร์ม
+                </Button>
+              </div>
+            </form>
+          </div>
+        </div>
+      )}
     </div>
   );
 }
 
 export default function FormsDirectoryPage() {
   return (
-    <Suspense fallback={<div className="min-h-screen bg-slate-50 flex items-center justify-center text-sm text-slate-500">กำลังโหลดรายการแบบฟอร์ม...</div>}>
+    <Suspense
+      fallback={
+        <div className="min-h-screen flex items-center justify-center bg-slate-50">
+          <div className="flex items-center gap-2 text-slate-500 text-sm">
+            <RefreshCw className="w-4 h-4 animate-spin text-teal-600" />
+            กำลังโหลดระบบ...
+          </div>
+        </div>
+      }
+    >
       <FormsDirectoryContent />
     </Suspense>
   );

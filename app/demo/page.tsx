@@ -10,7 +10,7 @@ import {
   UserPen,
   LayoutDashboard,
   Send,
-  Sparkles,
+  FileText,
   User,
   Calendar,
   Users,
@@ -189,10 +189,10 @@ function DemoSplitContent() {
               variant="outline"
               size="sm"
               onClick={handleFillDemoData}
-              className="gap-1 text-xs text-teal-700 border-teal-200 bg-teal-50/50 hover:bg-teal-100"
+              className="gap-1.5 text-xs text-slate-700 hover:bg-slate-50"
             >
-              <Sparkles className="h-3.5 w-3.5" />
-              กรอกข้อมูลตัวอย่าง (Auto-fill Demo)
+              <FileText className="h-3.5 w-3.5 text-slate-500" />
+              กรอกข้อมูลตัวอย่าง (Sample Data)
             </Button>
             <Button
               variant="outline"
